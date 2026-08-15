@@ -7,6 +7,8 @@ export interface BackgroundRowInjected {
     update: (field: keyof BackgroundSettings, value: BackgroundSettings[keyof BackgroundSettings]) => Promise<void>;
     /** Upload the picked file to the host asset store; resolves with the item. */
     upload: (file: File) => Promise<BackgroundItem>;
+    /** List the image files already sitting in the asset store folder. */
+    scanFolder: () => Promise<BackgroundItem[]>;
     /** Best-effort cleanup of the stored file behind a deleted item. */
     removeAsset: (item: BackgroundItem) => void;
     /** Apply an item instantly, like a skin switch; the write persists it. */
@@ -23,4 +25,4 @@ export type BackgroundRowComponentProps = PropsRuntime<'settings.appearance.item
  * @param props - composed slot props.
  * @returns the row element tree.
  */
-export declare function BackgroundRow({ t, useStore, update, upload, removeAsset, applyItem, previewOpacity, previewChrome, }: BackgroundRowComponentProps): import("react").JSX.Element;
+export declare function BackgroundRow({ t, useStore, update, upload, scanFolder, removeAsset, applyItem, previewOpacity, previewChrome, }: BackgroundRowComponentProps): import("react").JSX.Element;

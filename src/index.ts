@@ -5,13 +5,14 @@
  * whole library and broke switching on large collections. */
 
 import { createWriteStream, mkdirSync } from 'node:fs'
-import { unlink, readFile, stat } from 'node:fs/promises'
+import { readdir, unlink, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, extname, join } from 'node:path'
+import { basename, extname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
+import z from '@deepseek-ai/schemastery'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { BACKGROUND_SETTINGS_NAMESPACE, BackgroundSettingsSchema } from './skin-settings.ts'
 
@@ -27,6 +28,16 @@ export const ASSET_ROUTE_PREFIX = '/skin-background'
 
 /** Maximum uploaded file size (bytes); larger bodies are refused before write. */
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+/** Plugin configuration. */
+export interface Config {
+  /** The asset store directory. Empty = DSH_HOME/data/dsh-skin-background. */
+  assetDir: string
+}
+
+export const Config: z<Config> = z.object({
+  assetDir: z.string().default(''),
+})
 
 /** MIME type by extension (upload/serve whitelist). */
 const MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
@@ -48,22 +59,29 @@ function extensionForType(contentType: string): string | undefined {
   }
 }
 
-/** The plugin's data directory (DSH_HOME/data/dsh-skin-background). */
-export function assetDataDir(): string {
+/** The asset store directory: the configured folder, or DSH_HOME/data/dsh-skin-background. */
+export function assetDataDir(config: Config): string {
+  if (config.assetDir.trim() !== '') {
+    const configured = config.assetDir.startsWith('~')
+      ? join(homedir(), config.assetDir.slice(1))
+      : config.assetDir
+    return resolve(configured)
+  }
   return join(process.env.DSH_HOME ?? join(homedir(), '.dsh'), 'data', 'dsh-skin-background')
 }
 
-/** Safe stored file name: `<uuid>.<ext>` only — nothing caller-controlled. */
-function isSafeAssetName(name: string): boolean {
-  return /^[0-9a-f-]{36}\.(jpg|jpeg|png|gif|webp)$/.test(name)
+/** Safe stored file name: an image file name without path separators. */
+export function isSafeAssetName(name: string): boolean {
+  return /^[^/\\]+\.(jpg|jpeg|png|gif|webp)$/.test(name)
 }
 
 /**
  * Register the durable background section with the Host settings service
  * and the asset store routes on the web server when they are composed.
  * @param ctx - Host context that may acquire the services.
+ * @param config - plugin configuration (the asset store directory).
  */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: Config): void {
   ctx.inject(['settings'], (settingsCtx) => {
     settingsCtx.settings.register(BACKGROUND_NAMESPACE, BackgroundSettingsSchema)
   })
@@ -71,16 +89,20 @@ export function apply(ctx: Context): void {
     webCtx.effect(() => webCtx.webServer.register({
       kind: 'prefix',
       path: ASSET_ROUTE_PREFIX,
-      handler: (req, res) => handleAssetRequest(req, res),
+      handler: (req, res) => handleAssetRequest(req, res, assetDataDir(config)),
     }), 'dsh-skin-background: asset routes')
   })
 }
 
 /** Route the asset store requests; answers everything else with 404. */
-async function handleAssetRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handleAssetRequest(req: IncomingMessage, res: ServerResponse, dir: string): Promise<void> {
   const pathname = new URL(req.url ?? '/', 'http://x').pathname
   if (pathname === `${ASSET_ROUTE_PREFIX}/upload` && req.method === 'POST') {
-    await handleUpload(req, res)
+    await handleUpload(req, res, dir)
+    return
+  }
+  if (pathname === `${ASSET_ROUTE_PREFIX}/list` && req.method === 'GET') {
+    await handleList(res, dir)
     return
   }
   const assetsPrefix = `${ASSET_ROUTE_PREFIX}/assets/`
@@ -91,7 +113,7 @@ async function handleAssetRequest(req: IncomingMessage, res: ServerResponse): Pr
       res.end()
       return
     }
-    const file = join(assetDataDir(), name)
+    const file = join(dir, name)
     if (req.method === 'GET') {
       await serveAsset(file, res)
       return
@@ -105,8 +127,29 @@ async function handleAssetRequest(req: IncomingMessage, res: ServerResponse): Pr
   res.end()
 }
 
+/** List the image files in the store as ready-to-import items. */
+async function handleList(res: ServerResponse, dir: string): Promise<void> {
+  let entries: string[] = []
+  try {
+    entries = await readdir(dir)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      res.writeHead(500)
+      res.end()
+      return
+    }
+  }
+  const items = entries
+    .filter(isSafeAssetName)
+    .sort((a, b) => a.localeCompare(b))
+    .map(name => ({ id: name, name, url: `${ASSET_ROUTE_PREFIX}/assets/${encodeURIComponent(name)}` }))
+  const payload = JSON.stringify(items)
+  res.writeHead(200, { 'content-type': 'application/json' })
+  res.end(payload)
+}
+
 /** Read the upload body (bounded), persist it, and answer with the item. */
-async function handleUpload(req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function handleUpload(req: IncomingMessage, res: ServerResponse, dir: string): Promise<void> {
   const extension = extensionForType(String(req.headers['content-type'] ?? ''))
   if (extension === undefined) {
     res.writeHead(415)
@@ -131,7 +174,6 @@ async function handleUpload(req: IncomingMessage, res: ServerResponse): Promise<
     res.end()
     return
   }
-  const dir = assetDataDir()
   mkdirSync(dir, { recursive: true })
   const fileName = `${randomUUID()}${extension}`
   const file = join(dir, fileName)

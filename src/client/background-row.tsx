@@ -21,6 +21,8 @@ export interface BackgroundRowInjected {
   update: (field: keyof BackgroundSettings, value: BackgroundSettings[keyof BackgroundSettings]) => Promise<void>
   /** Upload the picked file to the host asset store; resolves with the item. */
   upload: (file: File) => Promise<BackgroundItem>
+  /** List the image files already sitting in the asset store folder. */
+  scanFolder: () => Promise<BackgroundItem[]>
   /** Best-effort cleanup of the stored file behind a deleted item. */
   removeAsset: (item: BackgroundItem) => void
   /** Apply an item instantly, like a skin switch; the write persists it. */
@@ -91,7 +93,7 @@ function useSliderWrite(
  * @returns the row element tree.
  */
 export function BackgroundRow({
-  t, useStore, update, upload, removeAsset, applyItem, previewOpacity, previewChrome,
+  t, useStore, update, upload, scanFolder, removeAsset, applyItem, previewOpacity, previewChrome,
 }: BackgroundRowComponentProps) {
   const settings = useStore(s => s)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -132,6 +134,22 @@ export function BackgroundRow({
     removeAsset(item)
   }
 
+  const onImportFolder = async (): Promise<void> => {
+    try {
+      const listed = await scanFolder()
+      const known = new Set(settings.items.map(item => item.id))
+      const fresh = listed.filter(item => !known.has(item.id))
+      if (fresh.length === 0) {
+        setError(t('noNewImages'))
+        return
+      }
+      await update('items', [...settings.items, ...fresh])
+      setError(undefined)
+    } catch {
+      setError(t('importFailed'))
+    }
+  }
+
   const itemRow = (item: BackgroundItem): ReactElement => (
     <div key={item.id} className={css.itemRow}>
       <span className={css.itemName} title={item.name}>{item.name}</span>
@@ -155,6 +173,9 @@ export function BackgroundRow({
         <span className={css.fileValue}>{active?.name ?? t('none')}</span>
         <button type="button" className={css.fileButton} onClick={() => { fileInputRef.current?.click() }}>
           {t('chooseAndSave')}
+        </button>
+        <button type="button" className={css.fileButton} onClick={() => { void onImportFolder() }}>
+          {t('importFromFolder')}
         </button>
       </div>
       <label className={css.field}>

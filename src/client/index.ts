@@ -214,6 +214,13 @@ export function apply(ctx: ClientContext): void {
         const saved = await response.json() as { id: string; url: string }
         return { id: saved.id, name: file.name, url: saved.url }
       },
+      // List the image files already in the asset store folder, so files
+      // dropped into it by hand can be imported into the library.
+      scanFolder: async () => {
+        const response = await fetch('/skin-background/list')
+        if (!response.ok) throw new Error(`list failed: ${response.status}`)
+        return await response.json() as BackgroundItem[]
+      },
       // Best-effort cleanup of the stored file behind a deleted item.
       removeAsset: (item) => {
         void fetch(item.url, { method: 'DELETE' })

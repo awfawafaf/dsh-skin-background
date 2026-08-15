@@ -3,6 +3,9 @@ export declare const zh: {
     readonly title: "背景";
     readonly none: "未设置";
     readonly chooseAndSave: "选择图片并保存…";
+    readonly importFromFolder: "从文件夹导入";
+    readonly noNewImages: "文件夹里没有新图片";
+    readonly importFailed: "导入失败，请检查图片文件夹";
     readonly opacity: "透明度";
     readonly chromeOpacity: "边栏透明度";
     readonly saved: "已保存";
@@ -17,6 +20,9 @@ export declare const en: {
     readonly title: "Background";
     readonly none: "Not set";
     readonly chooseAndSave: "Choose and save image…";
+    readonly importFromFolder: "Import from folder";
+    readonly noNewImages: "No new images in the folder";
+    readonly importFailed: "Import failed; check the image folder";
     readonly opacity: "Opacity";
     readonly chromeOpacity: "Sidebar transparency";
     readonly saved: "Saved";

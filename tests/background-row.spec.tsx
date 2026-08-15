@@ -25,6 +25,7 @@ function makeProps(overrides: Partial<BackgroundRowComponentProps> = {}): Backgr
     t: (key: keyof typeof zh) => zh[key],
     update: vi.fn(),
     upload: vi.fn(),
+    scanFolder: vi.fn(),
     removeAsset: vi.fn(),
     applyItem: vi.fn(),
     previewOpacity: vi.fn(),
@@ -135,6 +136,32 @@ describe('BackgroundRow library management', () => {
     fireEvent.click(screen.getAllByText('应用')[1]!)
 
     expect(props.applyItem).toHaveBeenCalledWith(ITEMS[1])
+    expect(props.update).not.toHaveBeenCalled()
+  })
+
+  it('imports new files from the asset folder, skipping already-saved ones', async () => {
+    const fresh: BackgroundItem = { id: 'item-3', name: '壁纸_人类之光.jpg', url: '/skin-background/assets/壁纸_人类之光.jpg' }
+    const props = makeProps()
+    props.scanFolder.mockResolvedValue([ITEMS[0], fresh])
+    render(<BackgroundRow {...props} />)
+
+    fireEvent.click(screen.getByText('从文件夹导入'))
+
+    await waitFor(() => {
+      expect(props.update).toHaveBeenCalledWith('items', [...ITEMS, fresh])
+    })
+  })
+
+  it('hints when the asset folder holds nothing new', async () => {
+    const props = makeProps()
+    props.scanFolder.mockResolvedValue([...ITEMS])
+    render(<BackgroundRow {...props} />)
+
+    fireEvent.click(screen.getByText('从文件夹导入'))
+
+    await waitFor(() => {
+      expect(screen.getByText('文件夹里没有新图片')).toBeTruthy()
+    })
     expect(props.update).not.toHaveBeenCalled()
   })
 

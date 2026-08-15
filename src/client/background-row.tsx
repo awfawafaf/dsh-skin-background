@@ -28,7 +28,7 @@ export interface BackgroundRowInjected {
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
 export type BackgroundRowComponentProps =
-  PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createBackgroundRowStore>>
+  PropsRuntime<'settings.appearance.item'> & PropsStore<ReturnType<typeof createBackgroundRowStore>>
   & PropsLocale<'settings.skin-background'> & BackgroundRowInjected
 
 /**

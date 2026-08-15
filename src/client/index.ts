@@ -6,8 +6,8 @@
  * architecture: the image is anchored to the viewport with `fixed`/`cover`,
  * so it never moves when the shell's columns animate, and switching images
  * is a single variable write that every surface picks up at once. Owns its
- * durable settings section (active item + saved library) and a
- * General-section settings row for the library management.
+ * durable settings section (active item + saved library) and an
+ * Appearance-section settings row for the library management.
  */
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
@@ -218,8 +218,8 @@ export function apply(ctx: ClientContext): void {
       },
     }
   }
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
+  ctx.slots.inject('settings.appearance.item', () => ctx.slots.register({
+    name: 'settings.appearance.item',
     id: 'skin-background',
     order: 30,
     store,

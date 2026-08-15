@@ -127,7 +127,7 @@ describe('dsh-skin-background client apply', () => {
     expect(manifest.peerDependencies['@deepseek-ai/cordis']).toBe('^4.0.1')
   })
 
-  it('registers the background skin and the General-section row', () => {
+  it('registers the background skin and the Appearance-section row', () => {
     const { ctx, readSlot, readLocale, readSkin } = fakeCtx()
     apply(ctx)
 
@@ -135,7 +135,7 @@ describe('dsh-skin-background client apply', () => {
     expect(readSkin()?.label).toBe('自定义背景')
     expect(readLocale()).toBe(SETTINGS_NS)
     const { slotName, registration } = readSlot()!
-    expect(slotName).toBe('settings.general.item')
+    expect(slotName).toBe('settings.appearance.item')
     expect(registration!.id).toBe('skin-background')
     expect(registration!.order).toBe(30)
   })

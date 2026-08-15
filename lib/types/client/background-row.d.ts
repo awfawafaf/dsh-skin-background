@@ -13,7 +13,7 @@ export interface BackgroundRowInjected {
     previewChrome: (value: number) => void;
 }
 /** Full component props: runtime share + store share + locale seat + injected face. */
-export type BackgroundRowComponentProps = PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createBackgroundRowStore>> & PropsLocale<'settings.skin-background'> & BackgroundRowInjected;
+export type BackgroundRowComponentProps = PropsRuntime<'settings.appearance.item'> & PropsStore<ReturnType<typeof createBackgroundRowStore>> & PropsLocale<'settings.skin-background'> & BackgroundRowInjected;
 /**
  * Render the background row.
  * @param props - composed slot props.

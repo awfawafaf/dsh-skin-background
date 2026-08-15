@@ -1,0 +1,12 @@
+# dsh-skin-background bundle patch: mounts the custom-background skin into a
+# dsh profile composition. The host half registers the durable
+# `skin-background` settings namespace (image URLs + opacity); the client
+# half registers the skin with the skin manager and owns a General-section
+# settings row for the background fields.
+#
+# Install: `dsh plugin --profile <name> add <this package>` — requires the
+# `dsh-skin-manager` bundle in the same profile. Restart the target profile
+# after installing.
+- insert:
+    - id: skin-background
+      name: dsh-skin-background

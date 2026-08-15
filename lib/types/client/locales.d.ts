@@ -4,8 +4,11 @@ export declare const zh: {
     readonly none: "未设置";
     readonly chooseAndSave: "选择图片并保存…";
     readonly importFromFolder: "从文件夹导入";
+    readonly pickFolder: "选择文件夹…";
+    readonly defaultFolder: "默认位置";
     readonly noNewImages: "文件夹里没有新图片";
     readonly importFailed: "导入失败，请检查图片文件夹";
+    readonly pickFailed: "选择文件夹失败，请重试";
     readonly opacity: "透明度";
     readonly chromeOpacity: "边栏透明度";
     readonly saved: "已保存";
@@ -21,8 +24,11 @@ export declare const en: {
     readonly none: "Not set";
     readonly chooseAndSave: "Choose and save image…";
     readonly importFromFolder: "Import from folder";
+    readonly pickFolder: "Choose folder…";
+    readonly defaultFolder: "Default location";
     readonly noNewImages: "No new images in the folder";
     readonly importFailed: "Import failed; check the image folder";
+    readonly pickFailed: "Could not pick the folder; try again";
     readonly opacity: "Opacity";
     readonly chromeOpacity: "Sidebar transparency";
     readonly saved: "Saved";

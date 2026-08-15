@@ -21,11 +21,12 @@ const ITEMS: BackgroundItem[] = [
 function makeProps(overrides: Partial<BackgroundRowComponentProps> = {}): BackgroundRowComponentProps {
   return {
     useStore: (selector: (state: BackgroundSettings) => unknown) =>
-      selector({ activeId: '', opacity: 100, chromeOpacity: 40, items: ITEMS }),
+      selector({ activeId: '', opacity: 100, chromeOpacity: 40, assetDir: '', items: ITEMS }),
     t: (key: keyof typeof zh) => zh[key],
     update: vi.fn(),
     upload: vi.fn(),
     scanFolder: vi.fn(),
+    pickFolder: vi.fn(),
     removeAsset: vi.fn(),
     applyItem: vi.fn(),
     previewOpacity: vi.fn(),
@@ -118,7 +119,7 @@ describe('BackgroundRow library management', () => {
     }))
     const props = makeProps({
       useStore: (selector: (state: BackgroundSettings) => unknown) =>
-        selector({ activeId: '', opacity: 100, chromeOpacity: 40, items: manyItems }),
+        selector({ activeId: '', opacity: 100, chromeOpacity: 40, assetDir: '', items: manyItems }),
     })
     render(<BackgroundRow {...props} />)
 
@@ -165,10 +166,22 @@ describe('BackgroundRow library management', () => {
     expect(props.update).not.toHaveBeenCalled()
   })
 
+  it('persists the folder picked through the native dialog', async () => {
+    const props = makeProps()
+    props.pickFolder.mockResolvedValue('D:/ds_harness/plugins/bg')
+    render(<BackgroundRow {...props} />)
+
+    fireEvent.click(screen.getByText('选择文件夹…'))
+
+    await waitFor(() => {
+      expect(props.update).toHaveBeenCalledWith('assetDir', 'D:/ds_harness/plugins/bg')
+    })
+  })
+
   it('marks the active item and deletes items, clearing the active id when it was active', async () => {
     const props = makeProps({
       useStore: (selector: (state: BackgroundSettings) => unknown) =>
-        selector({ activeId: 'item-1', opacity: 100, chromeOpacity: 40, items: ITEMS }),
+        selector({ activeId: 'item-1', opacity: 100, chromeOpacity: 40, assetDir: '', items: ITEMS }),
     })
     render(<BackgroundRow {...props} />)
 

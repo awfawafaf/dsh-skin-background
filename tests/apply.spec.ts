@@ -78,6 +78,9 @@ function fakeCtx(settings?: BackgroundSettings) {
         return () => {}
       },
     },
+    workspaces: {
+      pickDirectory: vi.fn(),
+    },
     skinManager: {
       register: (skin: SkinDefinition) => {
         lastSkin = skin
@@ -141,7 +144,7 @@ describe('dsh-skin-background client apply', () => {
   })
 
   it('installs the wallpaper stylesheet and the art variable on apply', () => {
-    const { ctx, readSkin } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM] })
+    const { ctx, readSkin } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
 
@@ -167,7 +170,7 @@ describe('dsh-skin-background client apply', () => {
     expect(wallpaperSheet()).toBeUndefined()
     expect(artVariable()).toBe('')
 
-    host.setValue({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM] })
+    host.setValue({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     expect(wallpaperSheet()).toBeDefined()
     expect(artVariable()).toContain('item-1.jpg')
 
@@ -176,7 +179,7 @@ describe('dsh-skin-background client apply', () => {
 
   it('applies an item instantly like a skin switch and persists it', () => {
     const second: BackgroundItem = { id: 'item-2', name: 'night.png', url: '/skin-background/assets/item-2.jpg' }
-    const { ctx, host, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM, second] })
+    const { ctx, host, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM, second] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
@@ -189,13 +192,13 @@ describe('dsh-skin-background client apply', () => {
     // the row store highlights optimistically — no round-trip wait.
     expect(artVariable()).toContain('item-2.jpg')
     expect(syncSpy).toHaveBeenCalledWith(expect.objectContaining({ activeId: 'item-2' }))
-    expect(host.read()).toEqual({ activeId: 'item-2', opacity: 100, chromeOpacity: 40, items: [ITEM, second] })
+    expect(host.read()).toEqual({ activeId: 'item-2', opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM, second] })
 
     dispose()
   })
 
   it('sets the dimming veil from the opacity and previews it live', () => {
-    const { ctx, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM] })
+    const { ctx, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
@@ -210,7 +213,7 @@ describe('dsh-skin-background client apply', () => {
   })
 
   it('sets the sidebar glass transparency and previews it live', () => {
-    const { ctx, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM] })
+    const { ctx, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
@@ -224,7 +227,7 @@ describe('dsh-skin-background client apply', () => {
   })
 
   it('switches the fallback gradient with the theme when no image is saved', async () => {
-    const { ctx, readSkin } = fakeCtx({ activeId: '', opacity: 100, chromeOpacity: 40, items: [] })
+    const { ctx, readSkin } = fakeCtx({ activeId: '', opacity: 100, chromeOpacity: 40, assetDir: '', items: [] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
@@ -238,7 +241,7 @@ describe('dsh-skin-background client apply', () => {
   })
 
   it('restores everything on deactivation', () => {
-    const { ctx, readSkin } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM] })
+    const { ctx, readSkin } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
 

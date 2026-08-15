@@ -22,6 +22,8 @@ export interface BackgroundSettings {
     opacity: number;
     /** Sidebar glass transparency 0–100 (step 5); 0 = solid chrome, 100 = fully clear. */
     chromeOpacity: number;
+    /** User-chosen asset store folder; empty = the plugin default location. */
+    assetDir: string;
     /** Saved background library. */
     items: BackgroundItem[];
 }

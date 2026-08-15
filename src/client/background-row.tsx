@@ -23,6 +23,8 @@ export interface BackgroundRowInjected {
   upload: (file: File) => Promise<BackgroundItem>
   /** List the image files already sitting in the asset store folder. */
   scanFolder: () => Promise<BackgroundItem[]>
+  /** Open the native folder picker for the asset store location. */
+  pickFolder: () => Promise<string | null>
   /** Best-effort cleanup of the stored file behind a deleted item. */
   removeAsset: (item: BackgroundItem) => void
   /** Apply an item instantly, like a skin switch; the write persists it. */
@@ -93,7 +95,7 @@ function useSliderWrite(
  * @returns the row element tree.
  */
 export function BackgroundRow({
-  t, useStore, update, upload, scanFolder, removeAsset, applyItem, previewOpacity, previewChrome,
+  t, useStore, update, upload, scanFolder, pickFolder, removeAsset, applyItem, previewOpacity, previewChrome,
 }: BackgroundRowComponentProps) {
   const settings = useStore(s => s)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -101,6 +103,15 @@ export function BackgroundRow({
   const opacity = useSliderWrite(settings.opacity, previewOpacity, value => update('opacity', value))
   const chrome = useSliderWrite(settings.chromeOpacity, previewChrome, value => update('chromeOpacity', value))
   const active = settings.items.find(item => item.id === settings.activeId)
+
+  const onPickFolder = async (): Promise<void> => {
+    try {
+      const path = await pickFolder()
+      if (path !== null && path.trim() !== '') await update('assetDir', path)
+    } catch {
+      setError(t('pickFailed'))
+    }
+  }
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = event.target.files?.[0]
@@ -176,6 +187,12 @@ export function BackgroundRow({
         </button>
         <button type="button" className={css.fileButton} onClick={() => { void onImportFolder() }}>
           {t('importFromFolder')}
+        </button>
+      </div>
+      <div className={css.fileRow}>
+        <span className={css.fileValue}>{settings.assetDir !== '' ? settings.assetDir : t('defaultFolder')}</span>
+        <button type="button" className={css.fileButton} onClick={() => { void onPickFolder() }}>
+          {t('pickFolder')}
         </button>
       </div>
       <label className={css.field}>

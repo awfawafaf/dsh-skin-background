@@ -14,6 +14,8 @@ import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runti
 // Type-only: Context merges (ctx.settingsScope / ctx.locale / ctx.skinManager).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls ctx.workspaces (the native directory picker).
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { SkinDefinition } from 'dsh-skin-manager'
 import type {} from 'dsh-skin-manager/client'
 import type { BackgroundRowInjected } from './background-row.tsx'
@@ -82,8 +84,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Required services: skin manager, settings transport, slots/locale. */
-export const inject = ['skinManager', 'slots', 'locale', 'connection', 'remote', 'settingsScope']
+/** Required services: skin manager, settings transport, slots/locale, and
+ * the workspace service (the native folder picker). */
+export const inject = ['skinManager', 'slots', 'locale', 'connection', 'remote', 'settingsScope', 'workspaces']
 
 /**
  * Client plugin body: register the background skin and its settings row.
@@ -221,6 +224,8 @@ export function apply(ctx: ClientContext): void {
         if (!response.ok) throw new Error(`list failed: ${response.status}`)
         return await response.json() as BackgroundItem[]
       },
+      // Native folder picker for the asset store location.
+      pickFolder: () => ctx.workspaces.pickDirectory(),
       // Best-effort cleanup of the stored file behind a deleted item.
       removeAsset: (item) => {
         void fetch(item.url, { method: 'DELETE' })

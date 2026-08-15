@@ -26,6 +26,8 @@ export interface BackgroundSettings {
   opacity: number
   /** Sidebar glass transparency 0–100 (step 5); 0 = solid chrome, 100 = fully clear. */
   chromeOpacity: number
+  /** User-chosen asset store folder; empty = the plugin default location. */
+  assetDir: string
   /** Saved background library. */
   items: BackgroundItem[]
 }
@@ -35,6 +37,7 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   activeId: '',
   opacity: 100,
   chromeOpacity: 40,
+  assetDir: '',
   items: [],
 }
 
@@ -43,6 +46,7 @@ export const BackgroundSettingsSchema: z<BackgroundSettings> = z.object({
   activeId: z.string().default(''),
   opacity: z.number().min(0).max(100).step(5).default(100),
   chromeOpacity: z.number().min(0).max(100).step(5).default(40),
+  assetDir: z.string().default(''),
   items: z.array(z.object({
     id: z.string(),
     name: z.string(),

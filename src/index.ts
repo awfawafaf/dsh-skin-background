@@ -82,21 +82,43 @@ export function isSafeAssetName(name: string): boolean {
  * @param config - plugin configuration (the asset store directory).
  */
 export function apply(ctx: Context, config: Config): void {
-  ctx.inject(['settings'], (settingsCtx) => {
-    settingsCtx.settings.register(BACKGROUND_NAMESPACE, BackgroundSettingsSchema)
-  })
-  ctx.inject(['webServer'], (webCtx) => {
-    webCtx.effect(() => webCtx.webServer.register({
+  ctx.inject(['settings', 'webServer'], (svcCtx) => {
+    svcCtx.settings.register(BACKGROUND_NAMESPACE, BackgroundSettingsSchema)
+    // Minimal structural face of the Host settings service: the current
+    // resolved value of the background namespace (schema defaults + user).
+    const readChosenDir = (): string => {
+      try {
+        const descriptor = svcCtx.settings
+          .describe({ redactSecrets: true })
+          .find(candidate => String(candidate.ns) === BACKGROUND_SETTINGS_NAMESPACE)
+        const chosen = (descriptor?.value as { assetDir?: unknown } | undefined)?.assetDir
+        return typeof chosen === 'string' ? chosen : ''
+      } catch {
+        return ''
+      }
+    }
+    svcCtx.effect(() => svcCtx.webServer.register({
       kind: 'prefix',
       path: ASSET_ROUTE_PREFIX,
-      handler: (req, res) => handleAssetRequest(req, res, assetDataDir(config)),
+      // The store folder follows the user's setting (picked in the row);
+      // the patch config is only the fallback default.
+      handler: (req, res) => handleAssetRequest(req, res, assetDataDir({ assetDir: readChosenDir() || config.assetDir })),
     }), 'dsh-skin-background: asset routes')
   })
 }
 
 /** Route the asset store requests; answers everything else with 404. */
 async function handleAssetRequest(req: IncomingMessage, res: ServerResponse, dir: string): Promise<void> {
-  const pathname = new URL(req.url ?? '/', 'http://x').pathname
+  // URL.pathname keeps percent-escapes; decode so Chinese/space names match
+  // the files on disk (a bad escape answers 400 instead of throwing).
+  let pathname: string
+  try {
+    pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)
+  } catch {
+    res.writeHead(400)
+    res.end()
+    return
+  }
   if (pathname === `${ASSET_ROUTE_PREFIX}/upload` && req.method === 'POST') {
     await handleUpload(req, res, dir)
     return

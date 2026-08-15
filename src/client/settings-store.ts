@@ -20,12 +20,13 @@ type BackgroundRowActions = {
  */
 export function createBackgroundRowStore(): EngineStoreHandle<BackgroundRowState, BackgroundRowActions> {
   return defineStore({
-    init: (): BackgroundRowState => ({ activeId: '', opacity: 100, chromeOpacity: 40, items: [] }),
+    init: (): BackgroundRowState => ({ activeId: '', opacity: 100, chromeOpacity: 40, assetDir: '', items: [] }),
     actions: {
       sync: (d, settings: BackgroundSettings) => {
         d.activeId = settings.activeId
         d.opacity = settings.opacity
         d.chromeOpacity = settings.chromeOpacity
+        d.assetDir = settings.assetDir
         d.items = settings.items
       },
     },

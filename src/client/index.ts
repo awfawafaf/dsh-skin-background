@@ -157,12 +157,9 @@ export function apply(ctx: ClientContext): void {
     order: 6,
     apply: () => {
       active = true
-      if (host.getSnapshot().value === undefined) {
-        // Settings still loading; the adoption subscription installs the
-        // wallpaper when they arrive.
-      } else {
-        setup()
-      }
+      // Settings still loading? The adoption subscription installs the
+      // wallpaper when they arrive — boot never flashes the fallback.
+      if (host.getSnapshot().value !== undefined) setup()
       return teardownSkin
     },
   }

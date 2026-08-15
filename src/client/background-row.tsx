@@ -1,9 +1,10 @@
 /**
- * Custom-background row registered into the General section item slot:
- * save/apply/delete over a persisted image library. The background skin
- * itself is selected in the Skin row; this row manages its library. Images
- * are picked through the native system file dialog (a hidden
- * `<input type="file">`) and embedded as data URIs.
+ * Custom-background row registered into the Appearance section item slot:
+ * save/apply/delete over a persisted image library, plus the image-opacity
+ * and sidebar-glass sliders. The background skin itself is selected in the
+ * Skin row above; this row manages its library. Images are picked through
+ * the native system file dialog (a hidden `<input type="file">`) and
+ * embedded as data URIs.
  */
 import { useEffect, useRef, useState, type ChangeEvent, type ReactElement } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'

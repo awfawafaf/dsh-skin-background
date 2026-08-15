@@ -195,11 +195,13 @@ export function apply(ctx: ClientContext): void {
       // re-sync the wallpaper as soon as the write commits.
       update: (field, value) => host.set(field, value).then(() => { syncArt() }),
       // Apply instantly like a skin switch: write the CSS variable right
-      // away (every surface picks it up in one style recalc), then persist
-      // the choice in the background.
+      // away (every surface picks it up in one style recalc), highlight the
+      // row optimistically (the persist round-trip carries the whole
+      // library, which is slow when it holds many images), then persist.
       applyItem: (item) => {
         if (!armed) return
         document.body.style.setProperty(ART_VARIABLE, imageValue(item))
+        bound?.sync({ ...current(), activeId: item.id })
         void host.set('activeId', item.id)
       },
       // Live dimming preview: write the veil variable right away; the row

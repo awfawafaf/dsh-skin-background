@@ -71,7 +71,7 @@ describe('BackgroundRow library management', () => {
     const file = new File([new Uint8Array(MAX_IMAGE_BYTES + 1)], 'big.png', { type: 'image/png' })
     fireEvent.change(fileInput(), { target: { files: [file] } })
 
-    expect(screen.getByText('图片太大(静态图限 4MB,动图限 15MB),请换一张更小的')).toBeTruthy()
+    expect(screen.getByText('图片太大(静态图限 12MB,动图限 15MB),请换一张更小的')).toBeTruthy()
     expect(props.update).not.toHaveBeenCalled()
   })
 
@@ -100,7 +100,41 @@ describe('BackgroundRow library management', () => {
     const gif = new File([new Uint8Array(15 * 1024 * 1024 + 1)], 'huge.gif', { type: 'image/gif' })
     fireEvent.change(fileInput(), { target: { files: [gif] } })
 
-    expect(screen.getByText('图片太大(静态图限 4MB,动图限 15MB),请换一张更小的')).toBeTruthy()
+    expect(screen.getByText('图片太大(静态图限 12MB,动图限 15MB),请换一张更小的')).toBeTruthy()
+    expect(props.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects saves when the library hits the item cap', () => {
+    const manyItems: BackgroundItem[] = Array.from({ length: 24 }, (_, index) => ({
+      id: `item-${index}`, name: `img-${index}.png`, dataUrl: 'data:image/png;base64,AA==',
+    }))
+    const props = makeProps({
+      useStore: (selector: (state: BackgroundSettings) => unknown) =>
+        selector({ activeId: '', opacity: 100, chromeOpacity: 40, items: manyItems }),
+    })
+    render(<BackgroundRow {...props} />)
+
+    fireEvent.click(screen.getByText('选择图片并保存…'))
+    fireEvent.change(fileInput(), { target: { files: [new File(['x'], 'extra.png', { type: 'image/png' })] } })
+
+    expect(screen.getByText('保存的图片数量已达上限(24 张),请先删除一些')).toBeTruthy()
+    expect(props.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects saves when the library hits the total size cap', async () => {
+    const heavy: BackgroundItem = { id: 'heavy', name: 'heavy.png', dataUrl: 'x'.repeat(60 * 1024 * 1024) }
+    const props = makeProps({
+      useStore: (selector: (state: BackgroundSettings) => unknown) =>
+        selector({ activeId: '', opacity: 100, chromeOpacity: 40, items: [heavy] }),
+    })
+    render(<BackgroundRow {...props} />)
+
+    fireEvent.click(screen.getByText('选择图片并保存…'))
+    fireEvent.change(fileInput(), { target: { files: [new File(['x'], 'extra.png', { type: 'image/png' })] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('保存库总大小已达上限(60MB),请先删除一些图片')).toBeTruthy()
+    })
     expect(props.update).not.toHaveBeenCalled()
   })
 

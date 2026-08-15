@@ -8,10 +8,16 @@
  * images is a single variable write that every surface picks up at once.
  */
 import type { BackgroundSettings } from '../skin-settings.ts';
-/** Maximum accepted still-image file size (the settings document embeds the data URI). */
+/** Maximum accepted still-image file size (4K wallpapers fit; the settings document embeds the data URI). */
 export declare const MAX_IMAGE_BYTES: number;
 /** Maximum accepted animated GIF size — frames make them larger than stills. */
 export declare const MAX_GIF_BYTES: number;
+/** Maximum number of saved library items. */
+export declare const MAX_LIBRARY_ITEMS = 24;
+/** Maximum total base64 payload across the library. Every settings write
+ * round-trip carries the whole library, so an unbounded library made
+ * switching laggy; the cap keeps the document and each response bounded. */
+export declare const MAX_LIBRARY_BYTES: number;
 /** The size cap for a picked file, by its type. */
 export declare function sizeCapForFile(file: File): number;
 /** Fallback light gradient (soft whale-blue sky) when no image is saved. */

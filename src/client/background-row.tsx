@@ -12,7 +12,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { BackgroundKey } from './locales.ts'
 import type { createBackgroundRowStore } from './settings-store.ts'
 import type { BackgroundItem, BackgroundSettings } from '../skin-settings.ts'
-import { newItemId, readImageFile, sizeCapForFile } from './background-layer.ts'
+import { MAX_LIBRARY_BYTES, MAX_LIBRARY_ITEMS, newItemId, readImageFile, sizeCapForFile } from './background-layer.ts'
 import css from './background-row.module.css'
 
 /** Injected business face: the settings write (t rides the standard locale seat). */
@@ -106,7 +106,18 @@ export function BackgroundRow({
       return
     }
     try {
+      if (settings.items.length >= MAX_LIBRARY_ITEMS) {
+        setError(t('tooManyItems'))
+        return
+      }
       const dataUrl = await readImageFile(file)
+      // Base64 length is the payload that every settings round-trip carries;
+      // cap the total so switching stays snappy with a full library.
+      const libraryBytes = settings.items.reduce((sum, item) => sum + item.dataUrl.length, 0)
+      if (libraryBytes + dataUrl.length > MAX_LIBRARY_BYTES) {
+        setError(t('libraryTooLarge'))
+        return
+      }
       const item: BackgroundItem = { id: newItemId(), name: file.name, dataUrl }
       // Serialize: a burst of concurrent writes can lose later fields.
       await update('items', [...settings.items, item])

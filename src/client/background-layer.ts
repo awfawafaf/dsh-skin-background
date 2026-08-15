@@ -10,11 +10,19 @@
 
 import type { BackgroundSettings } from '../skin-settings.ts'
 
-/** Maximum accepted still-image file size (the settings document embeds the data URI). */
-export const MAX_IMAGE_BYTES = 4 * 1024 * 1024
+/** Maximum accepted still-image file size (4K wallpapers fit; the settings document embeds the data URI). */
+export const MAX_IMAGE_BYTES = 12 * 1024 * 1024
 
 /** Maximum accepted animated GIF size — frames make them larger than stills. */
 export const MAX_GIF_BYTES = 15 * 1024 * 1024
+
+/** Maximum number of saved library items. */
+export const MAX_LIBRARY_ITEMS = 24
+
+/** Maximum total base64 payload across the library. Every settings write
+ * round-trip carries the whole library, so an unbounded library made
+ * switching laggy; the cap keeps the document and each response bounded. */
+export const MAX_LIBRARY_BYTES = 60 * 1024 * 1024
 
 /** The size cap for a picked file, by its type. */
 export function sizeCapForFile(file: File): number {

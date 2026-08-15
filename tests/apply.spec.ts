@@ -182,10 +182,13 @@ describe('dsh-skin-background client apply', () => {
     const dispose = skin.apply()
     expect(artVariable()).toContain('AAA=')
 
-    const { applyItem } = readSlot()!.registration!.inject({ sync: () => {} })
+    const syncSpy = vi.fn()
+    const { applyItem } = readSlot()!.registration!.inject({ sync: syncSpy })
     applyItem(second)
-    // One CSS variable write switches the wallpaper on every surface.
+    // One CSS variable write switches the wallpaper on every surface, and
+    // the row store highlights optimistically — no round-trip wait.
     expect(artVariable()).toContain('BBB=')
+    expect(syncSpy).toHaveBeenCalledWith(expect.objectContaining({ activeId: 'item-2' }))
     expect(host.read()).toEqual({ activeId: 'item-2', opacity: 100, chromeOpacity: 40, items: [ITEM, second] })
 
     dispose()

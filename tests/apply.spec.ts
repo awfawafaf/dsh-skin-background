@@ -23,7 +23,7 @@ interface RowRegistration {
   inject: (actions: unknown) => { update: (field: string, value: unknown) => Promise<void> }
 }
 
-const ITEM: BackgroundItem = { id: 'item-1', name: 'ocean.png', dataUrl: 'data:image/png;base64,AAA=' }
+const ITEM: BackgroundItem = { id: 'item-1', name: 'ocean.png', url: '/skin-background/assets/item-1.jpg' }
 
 const fakes: ReturnType<typeof fakeCtx>[] = []
 
@@ -151,7 +151,7 @@ describe('dsh-skin-background client apply', () => {
     const rules = [...(sheet!.sheet?.cssRules ?? [])].map(rule => rule.cssText)
     expect(rules.some(rule => rule.includes('[data-phase=') && rule.includes('var(--dsh-bg-art)'))).toBe(true)
     expect(rules.some(rule => rule.includes("[class*='frame']") && rule.includes('var(--dsh-bg-art)'))).toBe(true)
-    expect(artVariable()).toContain('AAA=')
+    expect(artVariable()).toContain('item-1.jpg')
 
     dispose()
   })
@@ -169,25 +169,25 @@ describe('dsh-skin-background client apply', () => {
 
     host.setValue({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM] })
     expect(wallpaperSheet()).toBeDefined()
-    expect(artVariable()).toContain('AAA=')
+    expect(artVariable()).toContain('item-1.jpg')
 
     dispose()
   })
 
   it('applies an item instantly like a skin switch and persists it', () => {
-    const second: BackgroundItem = { id: 'item-2', name: 'night.png', dataUrl: 'data:image/png;base64,BBB=' }
+    const second: BackgroundItem = { id: 'item-2', name: 'night.png', url: '/skin-background/assets/item-2.jpg' }
     const { ctx, host, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, items: [ITEM, second] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
-    expect(artVariable()).toContain('AAA=')
+    expect(artVariable()).toContain('item-1.jpg')
 
     const syncSpy = vi.fn()
     const { applyItem } = readSlot()!.registration!.inject({ sync: syncSpy })
     applyItem(second)
     // One CSS variable write switches the wallpaper on every surface, and
     // the row store highlights optimistically — no round-trip wait.
-    expect(artVariable()).toContain('BBB=')
+    expect(artVariable()).toContain('item-2.jpg')
     expect(syncSpy).toHaveBeenCalledWith(expect.objectContaining({ activeId: 'item-2' }))
     expect(host.read()).toEqual({ activeId: 'item-2', opacity: 100, chromeOpacity: 40, items: [ITEM, second] })
 

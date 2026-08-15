@@ -12,13 +12,17 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { BackgroundKey } from './locales.ts'
 import type { createBackgroundRowStore } from './settings-store.ts'
 import type { BackgroundItem, BackgroundSettings } from '../skin-settings.ts'
-import { MAX_LIBRARY_BYTES, MAX_LIBRARY_ITEMS, newItemId, readImageFile, sizeCapForFile } from './background-layer.ts'
+import { MAX_LIBRARY_ITEMS, sizeCapForFile } from './background-layer.ts'
 import css from './background-row.module.css'
 
 /** Injected business face: the settings write (t rides the standard locale seat). */
 export interface BackgroundRowInjected {
   /** Write one background settings field; resolves when the write commits. */
   update: (field: keyof BackgroundSettings, value: BackgroundSettings[keyof BackgroundSettings]) => Promise<void>
+  /** Upload the picked file to the host asset store; resolves with the item. */
+  upload: (file: File) => Promise<BackgroundItem>
+  /** Best-effort cleanup of the stored file behind a deleted item. */
+  removeAsset: (item: BackgroundItem) => void
   /** Apply an item instantly, like a skin switch; the write persists it. */
   applyItem: (item: BackgroundItem) => void
   /** Paint the slider's live value immediately (real-time dimming preview). */
@@ -87,7 +91,7 @@ function useSliderWrite(
  * @returns the row element tree.
  */
 export function BackgroundRow({
-  t, useStore, update, applyItem, previewOpacity, previewChrome,
+  t, useStore, update, upload, removeAsset, applyItem, previewOpacity, previewChrome,
 }: BackgroundRowComponentProps) {
   const settings = useStore(s => s)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -110,27 +114,22 @@ export function BackgroundRow({
         setError(t('tooManyItems'))
         return
       }
-      const dataUrl = await readImageFile(file)
-      // Base64 length is the payload that every settings round-trip carries;
-      // cap the total so switching stays snappy with a full library.
-      const libraryBytes = settings.items.reduce((sum, item) => sum + item.dataUrl.length, 0)
-      if (libraryBytes + dataUrl.length > MAX_LIBRARY_BYTES) {
-        setError(t('libraryTooLarge'))
-        return
-      }
-      const item: BackgroundItem = { id: newItemId(), name: file.name, dataUrl }
+      // Upload to the host asset store; the settings document holds only
+      // the served URL, so it never grows with the image payloads.
+      const item = await upload(file)
       // Serialize: a burst of concurrent writes can lose later fields.
       await update('items', [...settings.items, item])
       // Apply the fresh image instantly (skin-switch style).
       applyItem(item)
     } catch {
-      setError(t('readFailed'))
+      setError(t('uploadFailed'))
     }
   }
 
   const removeItem = async (item: BackgroundItem): Promise<void> => {
     await update('items', settings.items.filter(candidate => candidate.id !== item.id))
     if (settings.activeId === item.id) await update('activeId', '')
+    removeAsset(item)
   }
 
   const itemRow = (item: BackgroundItem): ReactElement => (

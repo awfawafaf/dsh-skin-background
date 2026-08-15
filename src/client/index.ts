@@ -98,13 +98,25 @@ export function apply(ctx: ClientContext): void {
 
   const current = (): BackgroundSettings => host.getSnapshot().value ?? DEFAULT_BACKGROUND_SETTINGS
 
-  /** The image value (data URI or theme-matched gradient) for an item. */
+  /** The image value (served asset URL or theme-matched gradient). */
   const imageValue = (item: BackgroundItem | undefined): string =>
     item !== undefined
-      ? `url("${item.dataUrl}")`
+      ? `url("${item.url}")`
       : document.body.hasAttribute('data-ds-dark-theme')
         ? DARK_FALLBACK_GRADIENT
         : LIGHT_FALLBACK_GRADIENT
+
+  /** The item the user most recently applied; its optimistic paint outlives
+   * the persist round-trip so a failed/conflicting write cannot revert the
+   * wallpaper (the adoption re-sync always prefers this id). */
+  let pendingItemId: string | undefined
+
+  /** The item whose wallpaper is currently painted. */
+  const paintedItem = (): BackgroundItem | undefined => {
+    const settings = current()
+    return activeBackgroundItem(settings)
+      ?? (pendingItemId !== undefined ? settings.items.find(item => item.id === pendingItemId) : undefined)
+  }
 
   /** The veil strength percentage (100 = fully dimmed toward the base). */
   const veilStrength = (opacity: number): string =>
@@ -117,7 +129,7 @@ export function apply(ctx: ClientContext): void {
   /** Write the current wallpaper, veil, and glass into the CSS variables. */
   const syncArt = (): void => {
     if (!armed) return
-    document.body.style.setProperty(ART_VARIABLE, imageValue(activeBackgroundItem(current())))
+    document.body.style.setProperty(ART_VARIABLE, imageValue(paintedItem()))
     document.body.style.setProperty(VEIL_STRENGTH_VARIABLE, veilStrength(current().opacity))
     document.body.style.setProperty(CHROME_TRANSPARENCY_VARIABLE, chromeTransparency(current().chromeOpacity))
   }
@@ -194,15 +206,30 @@ export function apply(ctx: ClientContext): void {
       // updates (a burst of concurrent writes can lose later fields), and
       // re-sync the wallpaper as soon as the write commits.
       update: (field, value) => host.set(field, value).then(() => { syncArt() }),
+      // Upload the picked file to the host asset store; the settings
+      // document holds only the served URL, so it stays tiny.
+      upload: async (file) => {
+        const response = await fetch('/skin-background/upload', { method: 'POST', body: file })
+        if (!response.ok) throw new Error(`upload failed: ${response.status}`)
+        const saved = await response.json() as { id: string; url: string }
+        return { id: saved.id, name: file.name, url: saved.url }
+      },
+      // Best-effort cleanup of the stored file behind a deleted item.
+      removeAsset: (item) => {
+        void fetch(item.url, { method: 'DELETE' })
+      },
       // Apply instantly like a skin switch: write the CSS variable right
-      // away (every surface picks it up in one style recalc), highlight the
-      // row optimistically (the persist round-trip carries the whole
-      // library, which is slow when it holds many images), then persist.
+      // away (every surface picks it up in one style recalc) and highlight
+      // the row optimistically; the pending id guards the paint against a
+      // conflicting persist round-trip reverting it.
       applyItem: (item) => {
         if (!armed) return
+        pendingItemId = item.id
         document.body.style.setProperty(ART_VARIABLE, imageValue(item))
         bound?.sync({ ...current(), activeId: item.id })
-        void host.set('activeId', item.id)
+        void host.set('activeId', item.id).then(() => {
+          if (pendingItemId === item.id) pendingItemId = undefined
+        })
       },
       // Live dimming preview: write the veil variable right away; the row
       // debounces the persisted write.

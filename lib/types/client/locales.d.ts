@@ -10,9 +10,8 @@ export declare const zh: {
     readonly delete: "删除";
     readonly fileTooLarge: "图片太大(静态图限 12MB,动图限 15MB),请换一张更小的";
     readonly tooManyItems: "保存的图片数量已达上限(24 张),请先删除一些";
-    readonly libraryTooLarge: "保存库总大小已达上限(60MB),请先删除一些图片";
-    readonly readFailed: "图片读取失败，请重试";
-    readonly hint: "在「皮肤」中选择「自定义背景」即可生效；支持 GIF 动图；图片内嵌保存，离线可用。";
+    readonly uploadFailed: "图片上传失败，请重试";
+    readonly hint: "在「皮肤」中选择「自定义背景」即可生效；支持 GIF 动图；图片保存在本地，离线可用。";
 };
 export declare const en: {
     readonly title: "Background";
@@ -25,9 +24,8 @@ export declare const en: {
     readonly delete: "Delete";
     readonly fileTooLarge: "Image too large (12MB for stills, 15MB for GIFs); pick a smaller one";
     readonly tooManyItems: "The library is full (24 images); delete some first";
-    readonly libraryTooLarge: "The library is at its size cap (60MB); delete some images first";
-    readonly readFailed: "Could not read the image; try again";
-    readonly hint: "Pick “Custom Background” in the Skin row to apply; animated GIFs work; images are embedded and work offline.";
+    readonly uploadFailed: "Could not upload the image; try again";
+    readonly hint: "Pick “Custom Background” in the Skin row to apply; animated GIFs work; images are stored locally and work offline.";
 };
 /** Locale keys for the background row. */
 export type BackgroundKey = keyof typeof zh;

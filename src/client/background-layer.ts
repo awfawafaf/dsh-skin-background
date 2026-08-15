@@ -6,11 +6,13 @@
  * anchors the cover crop to the viewport once, so the image is a STATIC
  * base that never moves when the shell's columns animate, and switching
  * images is a single variable write that every surface picks up at once.
+ * The image payloads live in the host asset store; the settings document
+ * holds only served URLs.
  */
 
 import type { BackgroundSettings } from '../skin-settings.ts'
 
-/** Maximum accepted still-image file size (4K wallpapers fit; the settings document embeds the data URI). */
+/** Maximum accepted still-image file size (4K wallpapers fit). */
 export const MAX_IMAGE_BYTES = 12 * 1024 * 1024
 
 /** Maximum accepted animated GIF size — frames make them larger than stills. */
@@ -18,11 +20,6 @@ export const MAX_GIF_BYTES = 15 * 1024 * 1024
 
 /** Maximum number of saved library items. */
 export const MAX_LIBRARY_ITEMS = 24
-
-/** Maximum total base64 payload across the library. Every settings write
- * round-trip carries the whole library, so an unbounded library made
- * switching laggy; the cap keeps the document and each response bounded. */
-export const MAX_LIBRARY_BYTES = 60 * 1024 * 1024
 
 /** The size cap for a picked file, by its type. */
 export function sizeCapForFile(file: File): number {
@@ -34,29 +31,6 @@ export const LIGHT_FALLBACK_GRADIENT = 'linear-gradient(180deg, #dbe6fb 0%, #f4f
 
 /** Fallback dark gradient (deep atelier navy) when no image is saved. */
 export const DARK_FALLBACK_GRADIENT = 'linear-gradient(180deg, #0b193f 0%, #14265c 55%, #0a1636 100%)'
-
-/**
- * Read a picked image file as a `data:` URI so the feature works offline
- * with no asset server, exactly like the maid-atelier embedded art.
- * @param file - the file from the native picker.
- * @returns the data URL.
- */
-export function readImageFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('image read failed'))
-    reader.readAsDataURL(file)
-  })
-}
-
-/** Generate a stable item id (crypto UUID when available). */
-export function newItemId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `bg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-}
 
 /** Resolve the active saved item, if any. */
 export function activeBackgroundItem(settings: BackgroundSettings): BackgroundSettings['items'][number] | undefined {

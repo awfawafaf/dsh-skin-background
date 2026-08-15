@@ -14,8 +14,8 @@ import type { BackgroundItem, BackgroundSettings } from '../src/skin-settings.ts
 afterEach(cleanup)
 
 const ITEMS: BackgroundItem[] = [
-  { id: 'item-1', name: 'ocean.png', dataUrl: 'data:image/png;base64,AAA=' },
-  { id: 'item-2', name: 'night.png', dataUrl: 'data:image/png;base64,BBB=' },
+  { id: 'item-1', name: 'ocean.png', url: '/skin-background/assets/item-1.jpg' },
+  { id: 'item-2', name: 'night.png', url: '/skin-background/assets/item-2.jpg' },
 ]
 
 function makeProps(overrides: Partial<BackgroundRowComponentProps> = {}): BackgroundRowComponentProps {
@@ -24,6 +24,8 @@ function makeProps(overrides: Partial<BackgroundRowComponentProps> = {}): Backgr
       selector({ activeId: '', opacity: 100, chromeOpacity: 40, items: ITEMS }),
     t: (key: keyof typeof zh) => zh[key],
     update: vi.fn(),
+    upload: vi.fn(),
+    removeAsset: vi.fn(),
     applyItem: vi.fn(),
     previewOpacity: vi.fn(),
     previewChrome: vi.fn(),
@@ -46,14 +48,18 @@ describe('BackgroundRow library management', () => {
     expect(screen.getAllByText('删除')).toHaveLength(2)
   })
 
-  it('saves a picked file: appends the item and applies it instantly', async () => {
+  it('saves a picked file: uploads, appends the item, and applies it instantly', async () => {
     const props = makeProps()
+    props.upload.mockResolvedValue({ id: 'new-1', name: 'sea.png', url: '/skin-background/assets/new-1.png' })
     render(<BackgroundRow {...props} />)
 
     fireEvent.click(screen.getByText('选择图片并保存…'))
     const file = new File(['x'], 'sea.png', { type: 'image/png' })
     fireEvent.change(fileInput(), { target: { files: [file] } })
 
+    await waitFor(() => {
+      expect(props.upload).toHaveBeenCalledWith(file)
+    })
     await waitFor(() => {
       expect(props.update).toHaveBeenCalledWith('items', [
         ...ITEMS,
@@ -77,6 +83,7 @@ describe('BackgroundRow library management', () => {
 
   it('accepts animated GIFs up to the larger cap', async () => {
     const props = makeProps()
+    props.upload.mockResolvedValue({ id: 'new-2', name: 'animated.gif', url: '/skin-background/assets/new-2.gif' })
     render(<BackgroundRow {...props} />)
 
     fireEvent.click(screen.getByText('选择图片并保存…'))
@@ -106,7 +113,7 @@ describe('BackgroundRow library management', () => {
 
   it('rejects saves when the library hits the item cap', () => {
     const manyItems: BackgroundItem[] = Array.from({ length: 24 }, (_, index) => ({
-      id: `item-${index}`, name: `img-${index}.png`, dataUrl: 'data:image/png;base64,AA==',
+      id: `item-${index}`, name: `img-${index}.png`, url: `/skin-background/assets/item-${index}.jpg`,
     }))
     const props = makeProps({
       useStore: (selector: (state: BackgroundSettings) => unknown) =>
@@ -118,23 +125,6 @@ describe('BackgroundRow library management', () => {
     fireEvent.change(fileInput(), { target: { files: [new File(['x'], 'extra.png', { type: 'image/png' })] } })
 
     expect(screen.getByText('保存的图片数量已达上限(24 张),请先删除一些')).toBeTruthy()
-    expect(props.update).not.toHaveBeenCalled()
-  })
-
-  it('rejects saves when the library hits the total size cap', async () => {
-    const heavy: BackgroundItem = { id: 'heavy', name: 'heavy.png', dataUrl: 'x'.repeat(60 * 1024 * 1024) }
-    const props = makeProps({
-      useStore: (selector: (state: BackgroundSettings) => unknown) =>
-        selector({ activeId: '', opacity: 100, chromeOpacity: 40, items: [heavy] }),
-    })
-    render(<BackgroundRow {...props} />)
-
-    fireEvent.click(screen.getByText('选择图片并保存…'))
-    fireEvent.change(fileInput(), { target: { files: [new File(['x'], 'extra.png', { type: 'image/png' })] } })
-
-    await waitFor(() => {
-      expect(screen.getByText('保存库总大小已达上限(60MB),请先删除一些图片')).toBeTruthy()
-    })
     expect(props.update).not.toHaveBeenCalled()
   })
 
@@ -163,6 +153,7 @@ describe('BackgroundRow library management', () => {
     await waitFor(() => {
       expect(props.update).toHaveBeenCalledWith('activeId', '')
     })
+    expect(props.removeAsset).toHaveBeenCalledWith(ITEMS[0])
   })
 
   it('shows the slider values live while dragging', () => {

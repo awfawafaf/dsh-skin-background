@@ -4,12 +4,15 @@ import z from '@deepseek-ai/schemastery';
 export declare const BACKGROUND_SETTINGS_NAMESPACE = "skin-background";
 /** One saved background image. */
 export interface BackgroundItem {
-    /** Stable id (settings identity). */
+    /** Stable id (settings identity + asset id). */
     id: string;
     /** Original file name (display only). */
     name: string;
-    /** Embedded `data:` URI — offline, no asset server. */
-    dataUrl: string;
+    /** Served asset path (`/skin-background/assets/<file>`); the payload lives
+     * on disk, so the settings document stays tiny and every write round-trip
+     * is small — embedding the images in the document made switching break on
+     * large libraries. */
+    url: string;
 }
 /** Durable background section shared by the Host schema and the browser scope. */
 export interface BackgroundSettings {

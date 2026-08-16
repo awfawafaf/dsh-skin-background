@@ -12,7 +12,7 @@ import { resolve } from 'node:path'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SkinDefinition } from 'dsh-skin-manager'
 import { apply, SETTINGS_NS } from '../src/client/index.ts'
-import type { BackgroundItem, BackgroundSettings } from '../src/skin-settings.ts'
+import { DEFAULT_BACKGROUND_SETTINGS, type BackgroundItem, type BackgroundSettings } from '../src/skin-settings.ts'
 
 interface RowRegistration {
   name: string
@@ -20,31 +20,36 @@ interface RowRegistration {
   order: number
   store: unknown
   locale: string
-  inject: (actions: unknown) => { update: (field: string, value: unknown) => Promise<void> }
+  inject: (actions: unknown) => {
+    update: (field: string, value: unknown) => Promise<void>
+    applyItem: (item: BackgroundItem) => void
+    previewOpacity: (value: number) => void
+    previewChrome: (value: number) => void
+  }
 }
 
 const ITEM: BackgroundItem = { id: 'item-1', name: 'ocean.png', url: '/skin-background/assets/item-1.jpg' }
 
 const fakes: ReturnType<typeof fakeCtx>[] = []
 
+/** Fetch-backed settings mock mirroring the host route (/skin-background/settings). */
 function fakeScope(initial?: BackgroundSettings) {
   let value = initial
-  const listeners = new Set<() => void>()
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url === '/skin-background/settings') {
+      if (init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { field: string; value: unknown }
+        value = { ...(value ?? DEFAULT_BACKGROUND_SETTINGS), [body.field]: body.value } as BackgroundSettings
+      }
+      return new Response(JSON.stringify(value ?? DEFAULT_BACKGROUND_SETTINGS), { status: 200 })
+    }
+    return new Response('', { status: 404 })
+  })
+  vi.stubGlobal('fetch', fetchMock)
   return {
-    scope: {
-      getSnapshot: () => ({ value }),
-      set: async (field: string, next: unknown) => {
-        value = { ...(value ?? {}), [field]: next } as BackgroundSettings
-      },
-      subscribe: (listener: () => void) => {
-        listeners.add(listener)
-        return () => { listeners.delete(listener) }
-      },
-    },
-    setValue: (next: BackgroundSettings) => {
-      value = next
-      for (const listener of listeners) listener()
-    },
+    fetchMock,
+    setValue: (next: BackgroundSettings) => { value = next },
     read: () => value,
   }
 }
@@ -64,9 +69,6 @@ function fakeCtx(settings?: BackgroundSettings) {
     effect: (factory: () => unknown) => { effects.push(factory()) },
     locale: {
       register: (namespace: string) => { localeNamespace = namespace },
-    },
-    settingsScope: {
-      bind: () => host.scope,
     },
     slots: {
       inject: (name: string, factory: () => unknown) => {
@@ -143,12 +145,13 @@ describe('dsh-skin-background client apply', () => {
     expect(registration!.order).toBe(30)
   })
 
-  it('installs the wallpaper stylesheet and the art variable on apply', () => {
+  it('installs the wallpaper stylesheet and the art variable on apply', async () => {
     const { ctx, readSkin } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
 
     const dispose = skin.apply()
+    await flushMutations()
     const sheet = wallpaperSheet()
     expect(sheet).toBeDefined()
     const rules = [...(sheet!.sheet?.cssRules ?? [])].map(rule => rule.cssText)
@@ -159,30 +162,33 @@ describe('dsh-skin-background client apply', () => {
     dispose()
   })
 
-  it('waits for the settings document before the first paint (no boot flash)', () => {
-    const { ctx, host, readSkin } = fakeCtx()
+  it('defers the first paint until the settings route answers (no boot flash)', async () => {
+    const { ctx, readSkin } = fakeCtx()
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
 
-    // Settings still loading: no stylesheet, no art variable, nothing
-    // painted — not even the fallback gradient.
+    // Settings route still loading: no stylesheet, no art variable,
+    // nothing painted — not even the fallback gradient.
     expect(wallpaperSheet()).toBeUndefined()
     expect(artVariable()).toBe('')
 
-    host.setValue({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
+    // The GET /skin-background/settings round-trip resolves (no item saved
+    // yet), so the fallback gradient paints without any item flash.
+    await flushMutations()
     expect(wallpaperSheet()).toBeDefined()
-    expect(artVariable()).toContain('item-1.jpg')
+    expect(artVariable()).toContain('#dbe6fb')
 
     dispose()
   })
 
-  it('applies an item instantly like a skin switch and persists it', () => {
+  it('applies an item instantly like a skin switch and persists it', async () => {
     const second: BackgroundItem = { id: 'item-2', name: 'night.png', url: '/skin-background/assets/item-2.jpg' }
     const { ctx, host, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM, second] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
+    await flushMutations()
     expect(artVariable()).toContain('item-1.jpg')
 
     const syncSpy = vi.fn()
@@ -192,16 +198,18 @@ describe('dsh-skin-background client apply', () => {
     // the row store highlights optimistically — no round-trip wait.
     expect(artVariable()).toContain('item-2.jpg')
     expect(syncSpy).toHaveBeenCalledWith(expect.objectContaining({ activeId: 'item-2' }))
+    await flushMutations()
     expect(host.read()).toEqual({ activeId: 'item-2', opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM, second] })
 
     dispose()
   })
 
-  it('sets the dimming veil from the opacity and previews it live', () => {
+  it('sets the dimming veil from the opacity and previews it live', async () => {
     const { ctx, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
+    await flushMutations()
     // 100 = full image: the veil strength is 0%.
     expect(document.body.style.getPropertyValue('--dsh-bg-veil-strength')).toBe('0%')
 
@@ -212,11 +220,12 @@ describe('dsh-skin-background client apply', () => {
     dispose()
   })
 
-  it('sets the sidebar glass transparency and previews it live', () => {
+  it('sets the sidebar glass transparency and previews it live', async () => {
     const { ctx, readSkin, readSlot } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
+    await flushMutations()
     expect(document.body.style.getPropertyValue('--dsh-chrome-transparency')).toBe('40%')
 
     const { previewChrome } = readSlot()!.registration!.inject({ sync: () => {} })
@@ -231,6 +240,7 @@ describe('dsh-skin-background client apply', () => {
     apply(ctx)
     const skin = readSkin()!
     const dispose = skin.apply()
+    await flushMutations()
     expect(artVariable()).toContain('#dbe6fb')
 
     document.body.setAttribute('data-ds-dark-theme', '')
@@ -240,12 +250,13 @@ describe('dsh-skin-background client apply', () => {
     dispose()
   })
 
-  it('restores everything on deactivation', () => {
+  it('restores everything on deactivation', async () => {
     const { ctx, readSkin } = fakeCtx({ activeId: ITEM.id, opacity: 100, chromeOpacity: 40, assetDir: '', items: [ITEM] })
     apply(ctx)
     const skin = readSkin()!
 
     const dispose = skin.apply()
+    await flushMutations()
     expect(wallpaperSheet()).toBeDefined()
 
     dispose()
@@ -253,12 +264,12 @@ describe('dsh-skin-background client apply', () => {
     expect(artVariable()).toBe('')
   })
 
-  it('writes settings through the injected update face', () => {
+  it('writes settings through the injected update face', async () => {
     const { ctx, host, readSlot } = fakeCtx()
     apply(ctx)
     const { update } = readSlot()!.registration!.inject({ sync: () => {} })
 
-    update('activeId', 'item-9')
-    expect(host.read()).toEqual({ activeId: 'item-9' })
+    await update('activeId', 'item-9')
+    expect(host.read()).toEqual({ activeId: 'item-9', opacity: 100, chromeOpacity: 40, assetDir: '', items: [] })
   })
 })

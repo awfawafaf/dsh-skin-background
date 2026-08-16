@@ -26,8 +26,17 @@ const BACKGROUND_NAMESPACE = settingsNamespace(BACKGROUND_SETTINGS_NAMESPACE)
 /** Route prefix under which the asset store lives. */
 export const ASSET_ROUTE_PREFIX = '/skin-background'
 
+/** Route prefix under which the settings section is served. */
+export const SETTINGS_ROUTE_PREFIX = '/skin-background/settings'
+
 /** Maximum uploaded file size (bytes); larger bodies are refused before write. */
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+/** Minimal structural face of the Host settings service this plugin needs. */
+interface SettingsService {
+  update(namespace: ReturnType<typeof settingsNamespace>, patch: object): Promise<void>
+  describe(options?: { redactSecrets?: boolean }): Array<{ ns: unknown; value: unknown }>
+}
 
 /** Plugin configuration. */
 export interface Config {
@@ -104,6 +113,14 @@ export function apply(ctx: Context, config: Config): void {
       // the patch config is only the fallback default.
       handler: (req, res) => handleAssetRequest(req, res, assetDataDir({ assetDir: readChosenDir() || config.assetDir })),
     }), 'dsh-skin-background: asset routes')
+    // The settings section rides this plugin's own route: the Web BFF's
+    // namespace allowlist excludes third-party namespaces, so reading and
+    // writing the section directly keeps the plugin self-contained.
+    svcCtx.effect(() => svcCtx.webServer.register({
+      kind: 'prefix',
+      path: SETTINGS_ROUTE_PREFIX,
+      handler: (req, res) => handleSettingsRequest(req, res, svcCtx.settings as unknown as SettingsService),
+    }), 'dsh-skin-background: settings routes')
   })
 }
 
@@ -244,4 +261,58 @@ async function deleteAsset(file: string, res: ServerResponse): Promise<void> {
   }
   res.writeHead(200)
   res.end()
+}
+
+/** Serve the settings section: GET reads, POST writes one field and re-reads. */
+async function handleSettingsRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  settings: SettingsService,
+): Promise<void> {
+  if (req.method === 'GET') {
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+    res.end(JSON.stringify(resolvedBackgroundSection(settings)))
+    return
+  }
+  if (req.method === 'POST') {
+    const chunks: Buffer[] = []
+    for await (const chunk of req) chunks.push(chunk as Buffer)
+    let patch: { field?: unknown; value?: unknown }
+    try {
+      patch = JSON.parse(Buffer.concat(chunks).toString('utf8')) as typeof patch
+    } catch {
+      res.writeHead(400)
+      res.end()
+      return
+    }
+    if (typeof patch.field !== 'string') {
+      res.writeHead(400)
+      res.end()
+      return
+    }
+    try {
+      await settings.update(BACKGROUND_NAMESPACE, { [patch.field]: patch.value })
+    } catch {
+      res.writeHead(500)
+      res.end()
+      return
+    }
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+    res.end(JSON.stringify(resolvedBackgroundSection(settings)))
+    return
+  }
+  res.writeHead(404)
+  res.end()
+}
+
+/** The current resolved section (schema defaults fill an empty document). */
+function resolvedBackgroundSection(settings: SettingsService): unknown {
+  try {
+    const descriptor = settings
+      .describe({ redactSecrets: true })
+      .find(candidate => String(candidate.ns) === BACKGROUND_SETTINGS_NAMESPACE)
+    return descriptor?.value ?? {}
+  } catch {
+    return {}
+  }
 }

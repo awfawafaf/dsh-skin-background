@@ -8,6 +8,8 @@ import z from '@deepseek-ai/schemastery';
 export { BACKGROUND_SETTINGS_NAMESPACE, DEFAULT_BACKGROUND_SETTINGS, type BackgroundSettings, } from './skin-settings.ts';
 /** Route prefix under which the asset store lives. */
 export declare const ASSET_ROUTE_PREFIX = "/skin-background";
+/** Route prefix under which the settings section is served. */
+export declare const SETTINGS_ROUTE_PREFIX = "/skin-background/settings";
 /** Plugin configuration. */
 export interface Config {
     /** The asset store directory. Empty = DSH_HOME/data/dsh-skin-background. */

@@ -10,9 +10,8 @@
  * Appearance-section settings row for the library management.
  */
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
-// Type-only: Context merges (ctx.settingsScope / ctx.locale / ctx.skinManager).
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: Context merges (ctx.locale / ctx.skinManager).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls ctx.workspaces (the native directory picker).
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
@@ -21,6 +20,7 @@ import type {} from 'dsh-skin-manager/client'
 import type { BackgroundRowInjected } from './background-row.tsx'
 import { BackgroundRow } from './background-row.tsx'
 import { createBackgroundRowStore } from './settings-store.ts'
+import { createFetchScope } from './fetch-scope.ts'
 import { zh, en, type BackgroundKey } from './locales.ts'
 import {
   activeBackgroundItem, DARK_FALLBACK_GRADIENT, LIGHT_FALLBACK_GRADIENT,
@@ -84,16 +84,17 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Required services: skin manager, settings transport, slots/locale, and
- * the workspace service (the native folder picker). */
-export const inject = ['skinManager', 'slots', 'locale', 'connection', 'remote', 'settingsScope', 'workspaces']
+/** Required services: skin manager, slots/locale, and the workspace service
+ * (the native folder picker). The settings section rides the plugin's own
+ * host route, not the settings BFF. */
+export const inject = ['skinManager', 'slots', 'locale', 'workspaces']
 
 /**
  * Client plugin body: register the background skin and its settings row.
  * @param ctx - client cordis context.
  */
 export function apply(ctx: ClientContext): void {
-  const host = ctx.settingsScope.bind<BackgroundSettings>({ namespace: BACKGROUND_SETTINGS_NAMESPACE })
+  const host = createFetchScope<BackgroundSettings>('/skin-background/settings')
   let bound: BoundActions<ReturnType<typeof createBackgroundRowStore>> | undefined
   let active = false
   let armed = false

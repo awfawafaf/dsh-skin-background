@@ -8,8 +8,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         'settings.skin-background': BackgroundKey;
     }
 }
-/** Required services: skin manager, settings transport, slots/locale, and
- * the workspace service (the native folder picker). */
+/** Required services: skin manager, slots/locale, and the workspace service
+ * (the native folder picker). The settings section rides the plugin's own
+ * host route, not the settings BFF. */
 export declare const inject: string[];
 /**
  * Client plugin body: register the background skin and its settings row.
